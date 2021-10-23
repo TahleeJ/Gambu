@@ -81,8 +81,6 @@ function createAmbulanceElement(elementId, vehicle_id, name, agency, location, s
             '</div>' +
             '<div class="text location-' + elementId + '"></div>' +
             '<div class="text status-' + elementId + '"></div>' +
-<<<<<<< HEAD
-=======
             '<div class="text ambulance-editor-' + elementId + '">' +
                 '<label for="available">Available</label>' +
                 '<input class="available-' + elementId + ' mdl-textfield__input" type="radio" name="status" id="available" value="available">' +
@@ -91,7 +89,6 @@ function createAmbulanceElement(elementId, vehicle_id, name, agency, location, s
                 '<label for="inactive">Inactive</label>' +
                 '<input class="inactive-' + elementId + ' mdl-textfield__input" type="radio" name="status" id="inactive" value="inactive">' +
             '</div>'
->>>>>>> TJ_Dev
           '</div>' +
         '</div>';
 
@@ -102,17 +99,6 @@ function createAmbulanceElement(elementId, vehicle_id, name, agency, location, s
 
         // Set the values of the new ambulance element
         ambulanceElement.getElementsByClassName('location-' + elementId)[0].innerText = "lat: " + location.lat + ", lng: " + location.lng;
-<<<<<<< HEAD
-        ambulanceElement.getElementsByClassName('status-' + elementId)[0].innerText = status;
-        ambulanceElement.getElementsByClassName('vehicle-id-' + elementId)[0].innerText = "#" + vehicle_id + ": " + name;
-        ambulanceElement.getElementsByClassName('agency-name-' + elementId)[0].innerText = agency;
-
-        // Listen for updates to the ambulance's location
-        var locationRef = database.ref('user-ambulances/' + creatorid + '/' + elementId + '/location');
-        locationRef.on('value', function(snapshot) {
-            console.log(snapshot.val());
-          updateLocation(ambulanceElement, snapshot.val(), elementId);
-=======
         ambulanceElement.getElementsByClassName('vehicle-id-' + elementId)[0].innerText = "#" + vehicle_id + ": " + name;
         ambulanceElement.getElementsByClassName('agency-name-' + elementId)[0].innerText = agency;
 
@@ -157,26 +143,10 @@ function createAmbulanceElement(elementId, vehicle_id, name, agency, location, s
 
                 database.ref().update(updates);
             };
->>>>>>> TJ_Dev
         });
     });
 }
 
-<<<<<<< HEAD
-        var statusRef = database.ref('user-ambulances/' + creatorid + '/' + elementId + '/status');
-        statusRef.on('value', function(snapshot) {
-            updateStatus(ambulanceElement, snapshot.val(), elementId);
-        });
-
-        // Keep track of all Firebase reference on which we are listening.
-        listeningFirebaseRefs.push(locationRef);
-        listeningFirebaseRefs.push(statusRef);
-
-        exports.scheduledFunction = functions.pubsub.schedule('every 5 seconds').onRun((context) => {
-            console.log("location update");
-          getCurrentLocation(elementId);
-        });
-=======
         // Update the vehicle's location every 3 seconds
         setInterval(function() {
             database.ref('ambulances/' + elementId).get().then((snapshot) => {
@@ -199,7 +169,6 @@ function createAmbulanceElement(elementId, vehicle_id, name, agency, location, s
         // Keep track of all Firebase reference on which we are listening.
         // listeningFirebaseRefs.push(locationRef);
         // listeningFirebaseRefs.push(statusRef);
->>>>>>> TJ_Dev
 
         return ambulanceElement;
 }
@@ -216,11 +185,7 @@ function updateLocation(ambulanceElement, location, elementId) {
  * Updates the availability status of an ambulance
  */
 function updateStatus(ambulanceElement, status, elementId) {
-<<<<<<< HEAD
-    ambulanceElement.getElementsByClassName('status-' + elementId)[0].innerText = status;
-=======
     // ambulanceElement.getElementsByClassName('status-' + elementId)[0].innerText = status;
->>>>>>> TJ_Dev
 }
 
 /**
@@ -242,10 +207,6 @@ function startDatabaseQueries() {
       userAmbulancesRef.on('child_changed', function(data) {
           var containerElement = ambulancesSection.getElementsByClassName('posts-container')[0];
           var ambulanceElement = containerElement.getElementsByClassName('vehicle-' + data.key)[0];
-<<<<<<< HEAD
-          ambulanceElement.getElementById('vehicle')[0].innerText = "#" + data.val().vehicle_id + ": " + data.val().name;
-          ambulanceElement.getElementById('agency-name')[0].innerText = data.val().agency;
-=======
           ambulanceElement.getElementsByClassName('location-' + data.key)[0].innerText = "lat: " + data.val().location.lat + ", lng: " + data.val().location.lng;
           ambulanceElement.getElementsByClassName('vehicle-id-' + data.key)[0].innerText = "#" + data.val().vehicle_id + ": " + data.val().name;
           ambulanceElement.getElementsByClassName('agency-name-' + data.key)[0].innerText = data.val().agency;
@@ -258,7 +219,6 @@ function startDatabaseQueries() {
           if (myUserId != data.key) {
               statusNonEditor.style.display = '';
           }
->>>>>>> TJ_Dev
       });
 
       userAmbulancesRef.on('child_removed', function(data) {
@@ -268,20 +228,12 @@ function startDatabaseQueries() {
       });
   };
 
-<<<<<<< HEAD
-  fetchAmbulances(allAmbulancesRef, userAmbulancesSection);
-=======
   // fetchAmbulances(allAmbulancesRef, userAmbulancesSection);
->>>>>>> TJ_Dev
   fetchAmbulances(userAmbulancesRef, userAmbulancesSection);
 
   // Keep track of all Firebase reference on which we are listening.
   listeningFirebaseRefs.push(userAmbulancesRef);
-<<<<<<< HEAD
-  listeningFirebaseRefs.push(allAmbulancesRef);
-=======
   // listeningFirebaseRefs.push(allAmbulancesRef);
->>>>>>> TJ_Dev
 }
 
 /**
