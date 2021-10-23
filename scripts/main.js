@@ -83,11 +83,11 @@ function createAmbulanceElement(elementId, vehicle_id, name, agency, location, s
             '<div class="text status-' + elementId + '"></div>' +
             '<div class="text ambulance-editor-' + elementId + '">' +
                 '<label for="available">Available</label>' +
-                '<input class="available-' + elementId + ' mdl-textfield__input" type="radio" name="status" id="available" value="available">' +
+                '<input class="available-' + elementId + ' mdl-textfield__input" type="radio" name="status-' + elementId + '" value="available">' +
                 '<label for="not-available">Not Available</label>' +
-                '<input class="not-available-' + elementId + ' mdl-textfield__input" type="radio" name="status" id="not-available" value="not available" selected="true">' +
+                '<input class="not-available-' + elementId + ' mdl-textfield__input" type="radio" name="status-' + elementId + '" value="not available" selected="true">' +
                 '<label for="inactive">Inactive</label>' +
-                '<input class="inactive-' + elementId + ' mdl-textfield__input" type="radio" name="status" id="inactive" value="inactive">' +
+                '<input class="inactive-' + elementId + ' mdl-textfield__input" type="radio" name="status-' + elementId + '" value="inactive">' +
             '</div>'
           '</div>' +
         '</div>';
@@ -111,7 +111,7 @@ function createAmbulanceElement(elementId, vehicle_id, name, agency, location, s
 
         // Decide whether the user has the ability to alter the ambulance's availability status or not
         if (uid != creatorid) {
-            statusNonEditor.style.display = '';
+            statusNonEditor.style.display = 'block';
         } else {
             var availableRadio = ambulanceElement.getElementsByClassName('available-' + elementId)[0];
             var notAvailableRadio = ambulanceElement.getElementsByClassName('not-available-' + elementId)[0];
@@ -126,6 +126,8 @@ function createAmbulanceElement(elementId, vehicle_id, name, agency, location, s
                 if (savedStatus == radio.value) {
                     radio.checked = true;
                 }
+
+                statusEditor.style.display = 'block';
 
                 radio.onclick = function() {
                     var updatedStatusData = {
@@ -213,12 +215,6 @@ function startDatabaseQueries() {
 
           var statusNonEditor = ambulanceElement.getElementsByClassName('status-' + data.key)[0];
           statusNonEditor.innerText = data.val().status;
-          statusNonEditor.style.display = "none";
-
-          // Decide whether the user has the ability to alter the ambulance's availability status or not
-          if (myUserId != data.key) {
-              statusNonEditor.style.display = '';
-          }
       });
 
       userAmbulancesRef.on('child_removed', function(data) {
