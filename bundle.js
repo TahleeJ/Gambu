@@ -1,3 +1,230 @@
+(function(){function r(e,n,t){function o(i,f){if(!n[i]){if(!e[i]){var c="function"==typeof require&&require;if(!f&&c)return c(i,!0);if(u)return u(i,!0);var a=new Error("Cannot find module '"+i+"'");throw a.code="MODULE_NOT_FOUND",a}var p=n[i]={exports:{}};e[i][0].call(p.exports,function(r){var n=e[i][1][r];return o(n||r)},p,p.exports,r,e,n,t)}return n[i].exports}for(var u="function"==typeof require&&require,i=0;i<t.length;i++)o(t[i]);return o}return r})()({1:[function(require,module,exports){
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.SimpleIntervalJob = exports.Job = exports.Task = exports.AsyncTask = exports.ToadScheduler = void 0;
+var toadScheduler_1 = require("./lib/toadScheduler");
+Object.defineProperty(exports, "ToadScheduler", { enumerable: true, get: function () { return toadScheduler_1.ToadScheduler; } });
+var AsyncTask_1 = require("./lib/common/AsyncTask");
+Object.defineProperty(exports, "AsyncTask", { enumerable: true, get: function () { return AsyncTask_1.AsyncTask; } });
+var Task_1 = require("./lib/common/Task");
+Object.defineProperty(exports, "Task", { enumerable: true, get: function () { return Task_1.Task; } });
+var Job_1 = require("./lib/common/Job");
+Object.defineProperty(exports, "Job", { enumerable: true, get: function () { return Job_1.Job; } });
+var SimpleIntervalJob_1 = require("./lib/engines/simple-interval/SimpleIntervalJob");
+Object.defineProperty(exports, "SimpleIntervalJob", { enumerable: true, get: function () { return SimpleIntervalJob_1.SimpleIntervalJob; } });
+
+},{"./lib/common/AsyncTask":2,"./lib/common/Job":3,"./lib/common/Task":5,"./lib/engines/simple-interval/SimpleIntervalJob":7,"./lib/toadScheduler":9}],2:[function(require,module,exports){
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.AsyncTask = void 0;
+function defaultErrorHandler(id) {
+    return (err) => {
+        console.error(`Error while handling task ${id}: ${err.message}`);
+    };
+}
+class AsyncTask {
+    constructor(id, handler, errorHandler) {
+        this.id = id;
+        this.handler = handler;
+        this.errorHandler = errorHandler || defaultErrorHandler(this.id);
+    }
+    execute() {
+        this.handler().catch(this.errorHandler);
+    }
+}
+exports.AsyncTask = AsyncTask;
+
+},{}],3:[function(require,module,exports){
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.Job = exports.JobStatus = void 0;
+var JobStatus;
+(function (JobStatus) {
+    JobStatus["RUNNING"] = "running";
+    JobStatus["STOPPED"] = "stopped";
+})(JobStatus = exports.JobStatus || (exports.JobStatus = {}));
+class Job {
+    constructor(id) {
+        this.id = id;
+    }
+}
+exports.Job = Job;
+
+},{}],4:[function(require,module,exports){
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.SchedulerEngine = void 0;
+class SchedulerEngine {
+}
+exports.SchedulerEngine = SchedulerEngine;
+
+},{}],5:[function(require,module,exports){
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.Task = void 0;
+function defaultErrorHandler(id) {
+    return (err) => {
+        console.error(`Error while handling task ${id}: ${err.message}`);
+    };
+}
+class Task {
+    constructor(id, handler, errorHandler) {
+        this.id = id;
+        this.handler = handler;
+        this.errorHandler = errorHandler || defaultErrorHandler(this.id);
+    }
+    execute() {
+        try {
+            this.handler();
+        }
+        catch (err) {
+            this.errorHandler(err);
+        }
+    }
+}
+exports.Task = Task;
+
+},{}],6:[function(require,module,exports){
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.SimpleIntervalEngine = void 0;
+const SchedulerEngine_1 = require("../../common/SchedulerEngine");
+class SimpleIntervalEngine extends SchedulerEngine_1.SchedulerEngine {
+    constructor() {
+        super();
+        this.jobs = [];
+    }
+    add(job) {
+        this.jobs.push(job);
+        job.start();
+    }
+    stop() {
+        for (const job of this.jobs) {
+            job.stop();
+        }
+    }
+}
+exports.SimpleIntervalEngine = SimpleIntervalEngine;
+
+},{"../../common/SchedulerEngine":4}],7:[function(require,module,exports){
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.SimpleIntervalJob = void 0;
+const Job_1 = require("../../common/Job");
+const SimpleIntervalSchedule_1 = require("./SimpleIntervalSchedule");
+class SimpleIntervalJob extends Job_1.Job {
+    constructor(schedule, task, id) {
+        super(id);
+        this.schedule = schedule;
+        this.task = task;
+    }
+    start() {
+        const time = SimpleIntervalSchedule_1.toMsecs(this.schedule);
+        // See https://github.com/kibertoad/toad-scheduler/issues/24
+        if (time >= 2147483647) {
+            throw new Error('Due to setInterval limitations, no intervals longer than 24.85 days can be scheduled correctly. toad-scheduler will eventually include a workaround for this, but for now your schedule is likely to break.');
+        }
+        // Avoid starting duplicates and leaking previous timers
+        if (this.timer) {
+            this.stop();
+        }
+        if (this.schedule.runImmediately) {
+            this.task.execute();
+        }
+        this.timer = setInterval(() => {
+            this.task.execute();
+        }, time);
+    }
+    stop() {
+        if (!this.timer) {
+            return;
+        }
+        clearInterval(this.timer);
+        this.timer = undefined;
+    }
+    getStatus() {
+        if (this.timer) {
+            return Job_1.JobStatus.RUNNING;
+        }
+        return Job_1.JobStatus.STOPPED;
+    }
+}
+exports.SimpleIntervalJob = SimpleIntervalJob;
+
+},{"../../common/Job":3,"./SimpleIntervalSchedule":8}],8:[function(require,module,exports){
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.toMsecs = void 0;
+function toMsecs(schedule) {
+    var _a, _b, _c, _d, _e;
+    const days = (_a = schedule.days) !== null && _a !== void 0 ? _a : 0;
+    const hours = (_b = schedule.hours) !== null && _b !== void 0 ? _b : 0;
+    const minutes = (_c = schedule.minutes) !== null && _c !== void 0 ? _c : 0;
+    const seconds = (_d = schedule.seconds) !== null && _d !== void 0 ? _d : 0;
+    const milliseconds = (_e = schedule.milliseconds) !== null && _e !== void 0 ? _e : 0;
+    return (milliseconds +
+        seconds * 1000 +
+        minutes * 60 * 1000 +
+        hours * 60 * 60 * 1000 +
+        days * 24 * 60 * 60 * 1000);
+}
+exports.toMsecs = toMsecs;
+
+},{}],9:[function(require,module,exports){
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.ToadScheduler = void 0;
+const SimpleIntervalEngine_1 = require("./engines/simple-interval/SimpleIntervalEngine");
+class ToadScheduler {
+    constructor() {
+        this.engines = {};
+        this.jobRegistry = {};
+    }
+    addSimpleIntervalJob(job) {
+        if (!this.engines.simpleIntervalEngine) {
+            this.engines.simpleIntervalEngine = new SimpleIntervalEngine_1.SimpleIntervalEngine();
+        }
+        if (job.id) {
+            if (this.jobRegistry[job.id]) {
+                throw new Error(`Job with an id ${job.id} is already registered.`);
+            }
+            this.jobRegistry[job.id] = job;
+        }
+        this.engines.simpleIntervalEngine.add(job);
+    }
+    stop() {
+        for (const engine of Object.values(this.engines)) {
+            engine === null || engine === void 0 ? void 0 : engine.stop();
+        }
+    }
+    getById(id) {
+        const job = this.jobRegistry[id];
+        if (!job) {
+            throw new Error(`Job with an id ${id} is not registered.`);
+        }
+        return job;
+    }
+    removeById(id) {
+        const job = this.jobRegistry[id];
+        if (!job) {
+            return;
+        }
+        job.stop();
+        delete this.jobRegistry[id];
+        return job;
+    }
+    stopById(id) {
+        const job = this.getById(id);
+        job.stop();
+    }
+    startById(id) {
+        const job = this.getById(id);
+        job.start();
+    }
+}
+exports.ToadScheduler = ToadScheduler;
+
+},{"./engines/simple-interval/SimpleIntervalEngine":6}],10:[function(require,module,exports){
 // Your web app's Firebase configuration
 const firebaseConfig = {
   apiKey: "AIzaSyBAS6kAkoJozCcihzNcxSQ0FeE0C7Xzsu4",
@@ -81,17 +308,6 @@ function createAmbulanceElement(elementId, vehicle_id, name, agency, location, s
             '</div>' +
             '<div class="text location-' + elementId + '"></div>' +
             '<div class="text status-' + elementId + '"></div>' +
-<<<<<<< HEAD
-=======
-            '<div class="text ambulance-editor-' + elementId + '">' +
-                '<label for="available">Available</label>' +
-                '<input class="available-' + elementId + ' mdl-textfield__input" type="radio" name="status" id="available" value="available">' +
-                '<label for="not-available">Not Available</label>' +
-                '<input class="not-available-' + elementId + ' mdl-textfield__input" type="radio" name="status" id="not-available" value="not available" selected="true">' +
-                '<label for="inactive">Inactive</label>' +
-                '<input class="inactive-' + elementId + ' mdl-textfield__input" type="radio" name="status" id="inactive" value="inactive">' +
-            '</div>'
->>>>>>> TJ_Dev
           '</div>' +
         '</div>';
 
@@ -102,7 +318,6 @@ function createAmbulanceElement(elementId, vehicle_id, name, agency, location, s
 
         // Set the values of the new ambulance element
         ambulanceElement.getElementsByClassName('location-' + elementId)[0].innerText = "lat: " + location.lat + ", lng: " + location.lng;
-<<<<<<< HEAD
         ambulanceElement.getElementsByClassName('status-' + elementId)[0].innerText = status;
         ambulanceElement.getElementsByClassName('vehicle-id-' + elementId)[0].innerText = "#" + vehicle_id + ": " + name;
         ambulanceElement.getElementsByClassName('agency-name-' + elementId)[0].innerText = agency;
@@ -112,57 +327,8 @@ function createAmbulanceElement(elementId, vehicle_id, name, agency, location, s
         locationRef.on('value', function(snapshot) {
             console.log(snapshot.val());
           updateLocation(ambulanceElement, snapshot.val(), elementId);
-=======
-        ambulanceElement.getElementsByClassName('vehicle-id-' + elementId)[0].innerText = "#" + vehicle_id + ": " + name;
-        ambulanceElement.getElementsByClassName('agency-name-' + elementId)[0].innerText = agency;
-
-        var statusNonEditor = ambulanceElement.getElementsByClassName('status-' + elementId)[0];
-        statusNonEditor.innerText = status;
-        statusNonEditor.style.display = "none";
-
-        var statusEditor = ambulanceElement.getElementsByClassName('ambulance-editor-' + elementId)[0];
-        statusEditor.style.display = "none";
-
-        // Decide whether the user has the ability to alter the ambulance's availability status or not
-        if (uid != creatorid) {
-            statusNonEditor.style.display = '';
-        } else {
-            var availableRadio = ambulanceElement.getElementsByClassName('available-' + elementId)[0];
-            var notAvailableRadio = ambulanceElement.getElementsByClassName('not-available-' + elementId)[0];
-            var inactiveRadio = ambulanceElement.getElementsByClassName('inactive-' + elementId)[0];
-
-            database.ref('ambulances/' + elementId).get().then((snapshot) => {
-                var savedStatus = snapshot.val().status.toLowerCase();
-                const radioList = [availableRadio, notAvailableRadio, inactiveRadio];
-
-                radioList.forEach((radio) => {
-
-                if (savedStatus == radio.value) {
-                    radio.checked = true;
-                }
-
-                radio.onclick = function() {
-                    var updatedStatusData = {
-                        uid: snapshot.val().uid,
-                        name: snapshot.val().name,
-                        vehicle_id: snapshot.val().vehicle_id,
-                        agency: snapshot.val().agency,
-                        location: snapshot.val().location,
-                        status: radio.value
-                }
-
-                var updates = {};
-                updates['/ambulances/' + elementId] = updatedStatusData;
-                updates['/user-ambulances/' + creatorid + '/' + elementId] = updatedStatusData;
-
-                database.ref().update(updates);
-            };
->>>>>>> TJ_Dev
         });
-    });
-}
 
-<<<<<<< HEAD
         var statusRef = database.ref('user-ambulances/' + creatorid + '/' + elementId + '/status');
         statusRef.on('value', function(snapshot) {
             updateStatus(ambulanceElement, snapshot.val(), elementId);
@@ -172,34 +338,20 @@ function createAmbulanceElement(elementId, vehicle_id, name, agency, location, s
         listeningFirebaseRefs.push(locationRef);
         listeningFirebaseRefs.push(statusRef);
 
-        exports.scheduledFunction = functions.pubsub.schedule('every 5 seconds').onRun((context) => {
-            console.log("location update");
-          getCurrentLocation(elementId);
+        const { ToadScheduler, SimpleIntervalJob, Task } = require('toad-scheduler');
+
+        const scheduler = new ToadScheduler();
+
+        const task = new Task('simple task', () => {
+            console.log("Location update");
+            getCurrentLocation(elementId);
         });
-=======
-        // Update the vehicle's location every 3 seconds
-        setInterval(function() {
-            database.ref('ambulances/' + elementId).get().then((snapshot) => {
-                getCurrentLocation(elementId, creatorid, snapshot.val());
-            });
-        }, 10000);
+        const job = new SimpleIntervalJob({ seconds: 5, }, task);
 
-        // Listen for updates to the ambulance's location
-        // var locationRef = database.ref('user-ambulances/' + creatorid + '/' + elementId + '/location');
-        // locationRef.on('value', function(snapshot) {
-        //     console.log(snapshot.val());
-        //    updateLocation(ambulanceElement, snapshot.val(), elementId);
-        // });
-        //
-        // var statusRef = database.ref('user-ambulances/' + creatorid + '/' + elementId + '/status');
-        // statusRef.on('value', function(snapshot) {
-        //     updateStatus(ambulanceElement, snapshot.val(), elementId);
-        // });
+        scheduler.addSimpleIntervalJob(job)
 
-        // Keep track of all Firebase reference on which we are listening.
-        // listeningFirebaseRefs.push(locationRef);
-        // listeningFirebaseRefs.push(statusRef);
->>>>>>> TJ_Dev
+        // when stopping your app
+        // scheduler.stop()
 
         return ambulanceElement;
 }
@@ -216,11 +368,7 @@ function updateLocation(ambulanceElement, location, elementId) {
  * Updates the availability status of an ambulance
  */
 function updateStatus(ambulanceElement, status, elementId) {
-<<<<<<< HEAD
     ambulanceElement.getElementsByClassName('status-' + elementId)[0].innerText = status;
-=======
-    // ambulanceElement.getElementsByClassName('status-' + elementId)[0].innerText = status;
->>>>>>> TJ_Dev
 }
 
 /**
@@ -242,23 +390,8 @@ function startDatabaseQueries() {
       userAmbulancesRef.on('child_changed', function(data) {
           var containerElement = ambulancesSection.getElementsByClassName('posts-container')[0];
           var ambulanceElement = containerElement.getElementsByClassName('vehicle-' + data.key)[0];
-<<<<<<< HEAD
           ambulanceElement.getElementById('vehicle')[0].innerText = "#" + data.val().vehicle_id + ": " + data.val().name;
           ambulanceElement.getElementById('agency-name')[0].innerText = data.val().agency;
-=======
-          ambulanceElement.getElementsByClassName('location-' + data.key)[0].innerText = "lat: " + data.val().location.lat + ", lng: " + data.val().location.lng;
-          ambulanceElement.getElementsByClassName('vehicle-id-' + data.key)[0].innerText = "#" + data.val().vehicle_id + ": " + data.val().name;
-          ambulanceElement.getElementsByClassName('agency-name-' + data.key)[0].innerText = data.val().agency;
-
-          var statusNonEditor = ambulanceElement.getElementsByClassName('status-' + data.key)[0];
-          statusNonEditor.innerText = data.val().status;
-          statusNonEditor.style.display = "none";
-
-          // Decide whether the user has the ability to alter the ambulance's availability status or not
-          if (myUserId != data.key) {
-              statusNonEditor.style.display = '';
-          }
->>>>>>> TJ_Dev
       });
 
       userAmbulancesRef.on('child_removed', function(data) {
@@ -268,20 +401,12 @@ function startDatabaseQueries() {
       });
   };
 
-<<<<<<< HEAD
   fetchAmbulances(allAmbulancesRef, userAmbulancesSection);
-=======
-  // fetchAmbulances(allAmbulancesRef, userAmbulancesSection);
->>>>>>> TJ_Dev
   fetchAmbulances(userAmbulancesRef, userAmbulancesSection);
 
   // Keep track of all Firebase reference on which we are listening.
   listeningFirebaseRefs.push(userAmbulancesRef);
-<<<<<<< HEAD
   listeningFirebaseRefs.push(allAmbulancesRef);
-=======
-  // listeningFirebaseRefs.push(allAmbulancesRef);
->>>>>>> TJ_Dev
 }
 
 /**
@@ -491,31 +616,4 @@ window.addEventListener('load', function() {
   };
 }, false);
 
-function getCurrentLocation(ambulanceKey, uid, ambulanceSnapshot) {
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const pos = {
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
-        };
-
-        var updatedLocData = {
-            uid: ambulanceSnapshot.uid,
-            name: ambulanceSnapshot.name,
-            vehicle_id: ambulanceSnapshot.vehicle_id,
-            agency: ambulanceSnapshot.agency,
-            location: pos,
-            status: ambulanceSnapshot.status
-        }
-
-        var updates = {};
-        updates['/ambulances/' + ambulanceKey] = updatedLocData;
-        updates['/user-ambulances/' + uid + '/' + ambulanceKey] = updatedLocData;
-
-        database.ref().update(updates);
-        console.log(pos);
-      },
-      () => {
-        console.log("Cannot track your location: Geolocation error");
-      });
-}
+},{"toad-scheduler":1}]},{},[10]);

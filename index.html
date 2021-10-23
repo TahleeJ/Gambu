@@ -53,22 +53,12 @@
   <section id="page-splash">
     <h3 class="logo">Database Web Quickstart</h3>
     <div>
-        <!-- <h1 class="logo"> Ambulance Manager? </h1> -->
-        <!-- <form>
-            <label for="ambulance-manager">Ambulance Manager?</label><br>
-            <input id="ambulance-manager" type="checkbox"><br>
-            <label for="agency-name">Agency Name:</label><br>
-            <input id="agency-name" type="username"><br>
-            <label for="agency-pass">Agency's Password</label><br>
-            <input id="agency-pass" type="password"><br>
-        </form> -->
       <button id="sign-in-button" class="mdl-button--raised mdl-button mdl-js-button mdl-js-ripple-effect"><i class="material-icons">account_circle</i> Sign in with Google</button>
     </div>
   </section>
 
   <!-- Header section containing logo and menu -->
   <header class="header mdl-layout__header mdl-color-text--white mdl-color--light-blue-700">
-
     <div class="mdl-layout__header-row titlebar">
       <h3 class="logo">Database Web Quickstart</h3>
       <button id="sign-out-button" class="mdl-button--raised mdl-button mdl-js-button mdl-js-ripple-effect"><i class="material-icons">account_circle</i> Sign out</button>
@@ -77,6 +67,7 @@
     <!-- Navigation Bar -->
     <div class="tab mdl-layout__header-row mdl-color--light-blue-600">
       <div class="mdl-tab">
+<<<<<<< HEAD
         <!-- <div id="menu-recent" class="mdl-layout__tab is-active mdl-button mdl-js-button mdl-js-ripple-effect">
           <i class="material-icons">new_releases</i> Recent
         </div>
@@ -87,6 +78,8 @@
           <i class="material-icons">trending_up</i> My top posts
         </div> -->
         
+=======
+>>>>>>> TJ_Dev
         <div id="menu-my-ambulances" class="mdl-layout__tab mdl-button mdl-js-button mdl-js-ripple-effect">
           <i class="material-icons">home</i> My vehicles
         </div>
@@ -128,6 +121,14 @@
                 <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
                   <input class="mdl-textfield__input" type="password" id="agency-password">
                   <label class="mdl-textfield__label" for="agency-password">Ambulance's Agency's Password...</label>
+                </div>
+                <div class="mdl-textfield mdl-js-textfield mdl-textfield--floating-label">
+                  <label for="available">Available</label>
+                  <input class="mdl-textfield__input" type="radio" name="status" id="available" value="Available">
+                  <label for="not-available">Not Available</label>
+                  <input class="mdl-textfield__input" type="radio" name="status" id="not-available" value="Not Available" selected="true">
+                  <label for="inactive">Inactive</label>
+                  <input class="mdl-textfield__input" type="radio" name="status" id="inactive" value="Inactive">
                 </div>
                 <button type="submit" class="mdl-button mdl-js-button mdl-button--raised mdl-js-ripple-effect">
                   Add ambulance

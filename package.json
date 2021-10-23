@@ -1,0 +1,26 @@
+{
+  "name": "gambu",
+  "version": "1.0.0",
+  "description": "gambu app",
+  "main": "bundle.js",
+  "scripts": {
+    "test": "test-gambu"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/TahleeJ/Gambu.git"
+  },
+  "keywords": [
+    "gambu"
+  ],
+  "author": "TahleeJ",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/TahleeJ/Gambu/issues"
+  },
+  "homepage": "https://github.com/TahleeJ/Gambu#readme",
+  "dependencies": {
+    "requirejs": "^2.3.6",
+    "toad-scheduler": "^1.5.0"
+  }
+}
