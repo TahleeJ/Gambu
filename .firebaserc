@@ -1,6 +1,7 @@
 {
   "projects": {
-    "gambu": "gambu-acadd"
+    "gambu": "gambu-acadd",
+    "default": "gambu-acadd"
   },
   "targets": {}
 }
