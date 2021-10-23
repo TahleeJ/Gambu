@@ -12,7 +12,8 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase
-const app = !firebase.apps.length ? firebase.initializeApp(firebaseConfig) : firebase.app()
+const app = !firebase.apps.length ? firebase.initializeApp(firebaseConfig) : firebase.app();
+// Firebase will use the default realtime database without a name specified (this is okay)
 const database = firebase.database();
 
  'use strict';
@@ -30,22 +31,28 @@ var addAmbulance = document.getElementById('add-post');
 var addButton = document.getElementById('add');
 var userAmbulancesSection = document.getElementById('user-ambulances-list');
 var myAmbulancesButton = document.getElementById('menu-my-ambulances');
+var availableRadio = document.getElementById('available');
+var notAvailableRadio = document.getElementById('not-available');
+var inactiveRadio = document.getElementById('inactive');
 var listeningFirebaseRefs = [];
 
 /**
  * Saves a new ambulance to the Firebase DB.
  */
-function writeNewAmbulance(uid, name, vehicle_id, agency, location) {
+function writeNewAmbulance(uid, name, vehicle_id, agency, location, status) {
     var ambulanceData = {
         uid: uid,
         name: name,
         vehicle_id: vehicle_id,
         agency: agency,
-        location: location
+        location: location,
+        status: status
     };
 
+    // Creates a new key to identify this ambulance
     var newAmbulanceKey = database.ref().child('ambulances').push().key;
 
+    // Adds this ambulance into the list of all ambulances and the list of the logged in user's ambulances
     var updates = {};
     updates['/ambulances/' + newAmbulanceKey] = ambulanceData;
     updates['/user-ambulances/' + uid + '/' + newAmbulanceKey] = ambulanceData;
@@ -56,39 +63,58 @@ function writeNewAmbulance(uid, name, vehicle_id, agency, location) {
 /**
  * Creates an ambulance element.
  */
-function createAmbulanceElement(elementId, vehicle_id, name, agency, location, creatorid) {
+function createAmbulanceElement(elementId, vehicle_id, name, agency, location, status, creatorid) {
     var uid = firebase.auth().currentUser.uid;
 
+    // Template html for the card element the ambulance will show up in
     var html =
         '<div class="post vehicle-' + elementId + ' mdl-cell mdl-cell--12-col ' +
                     'mdl-cell--6-col-tablet mdl-cell--4-col-desktop mdl-grid mdl-grid--no-spacing">' +
           '<div class="mdl-card mdl-shadow--2dp">' +
             '<div class="mdl-card__title mdl-color--light-blue-600 mdl-color-text--white">' +
-              '<h4 class="mdl-card__title-text"></h4>' +
+              '<h4 class="mdl-card__title-text vehicle-id-'  + elementId + '"></h4>' +
             '</div>' +
             '<div class="header">' +
               '<div>' +
-                '<div class="username mdl-color-text--black"></div>' +
+                '<div class="agency-name-' + elementId + ' mdl-color-text--black"></div>' +
               '</div>' +
             '</div>' +
-            '<div class="text"></div>' +
+            '<div class="text location-' + elementId + '"></div>' +
+            '<div class="text status-' + elementId + '"></div>' +
           '</div>' +
         '</div>';
 
+        // Create the DOM element from the HTML.
         var div = document.createElement('div');
         div.innerHTML = html;
         var ambulanceElement = div.firstChild;
 
-        ambulanceElement.getElementsByClassName('text')[0].innerText = location | "N/A";
-        ambulanceElement.getElementsByClassName('mdl-card__title-text')[0].innerText = "#" + vehicle_id + ": " + name;
-        ambulanceElement.getElementsByClassName('username')[0].innerText = agency;
+        // Set the values of the new ambulance element
+        ambulanceElement.getElementsByClassName('location-' + elementId)[0].innerText = "lat: " + location.lat + ", lng: " + location.lng;
+        ambulanceElement.getElementsByClassName('status-' + elementId)[0].innerText = status;
+        ambulanceElement.getElementsByClassName('vehicle-id-' + elementId)[0].innerText = "#" + vehicle_id + ": " + name;
+        ambulanceElement.getElementsByClassName('agency-name-' + elementId)[0].innerText = agency;
 
-        var locationRef = database.ref('user-ambulances/' + elementId + '/location');
+        // Listen for updates to the ambulance's location
+        var locationRef = database.ref('user-ambulances/' + creatorid + '/' + elementId + '/location');
         locationRef.on('value', function(snapshot) {
-          updateLocation(ambulanceElement, snapshot.val());
+            console.log(snapshot.val());
+          updateLocation(ambulanceElement, snapshot.val(), elementId);
         });
 
+        var statusRef = database.ref('user-ambulances/' + creatorid + '/' + elementId + '/status');
+        statusRef.on('value', function(snapshot) {
+            updateStatus(ambulanceElement, snapshot.val(), elementId);
+        });
+
+        // Keep track of all Firebase reference on which we are listening.
         listeningFirebaseRefs.push(locationRef);
+        listeningFirebaseRefs.push(statusRef);
+
+        exports.scheduledFunction = functions.pubsub.schedule('every 5 seconds').onRun((context) => {
+            console.log("location update");
+          getCurrentLocation(elementId);
+        });
 
         return ambulanceElement;
 }
@@ -96,31 +122,39 @@ function createAmbulanceElement(elementId, vehicle_id, name, agency, location, c
 /**
  * Updates the location of an ambulance
  */
-function updateLocation(ambulanceElement, location) {
-    ambulanceElement.getElementsByClassName('text')[0].innerText = location;
+function updateLocation(ambulanceElement, location, elementId) {
+    console.log(location);
+    ambulanceElement.getElementsByClassName('location-' + elementId)[0].innerText = "lat: " + location.lat + ", lng: " + location.lng;
+}
+
+/**
+ * Updates the availability status of an ambulance
+ */
+function updateStatus(ambulanceElement, status, elementId) {
+    ambulanceElement.getElementsByClassName('status-' + elementId)[0].innerText = status;
 }
 
 /**
  * Starts listening for new ambulances and populates ambulances lists.
  */
 function startDatabaseQueries() {
-    console.log("start database queries");
   var myUserId = firebase.auth().currentUser.uid;
 
   var userAmbulancesRef = database.ref('user-ambulances/' + myUserId);
+  var allAmbulancesRef = database.ref('ambulances/');
   var fetchAmbulances = function(ambulancesRef, ambulancesSection) {
       userAmbulancesRef.on('child_added', function(data) {
           var containerElement = ambulancesSection.getElementsByClassName('posts-container')[0];
           containerElement.insertBefore(
-              createAmbulanceElement(data.key, data.val().vehicle_id, data.val().name, data.val().agency, data.val().location, data.val().uid),
+              createAmbulanceElement(data.key, data.val().vehicle_id, data.val().name, data.val().agency, data.val().location, data.val().status, data.val().uid),
               containerElement.firstChild);
-      });
+      }); // A new ambulance element will be added to the ambulance elements' container when a new ambulance is added to the user's list of ambulances
 
       userAmbulancesRef.on('child_changed', function(data) {
           var containerElement = ambulancesSection.getElementsByClassName('posts-container')[0];
           var ambulanceElement = containerElement.getElementsByClassName('vehicle-' + data.key)[0];
-          ambulanceElement.getElementsByClassName('mdl-card__title-text')[0].innerText = "#" + data.val().vehicle_id + ": " + data.val().name;
-          ambulanceElement.getElementsByClassName('username')[0].innerText = data.val().agency;
+          ambulanceElement.getElementById('vehicle')[0].innerText = "#" + data.val().vehicle_id + ": " + data.val().name;
+          ambulanceElement.getElementById('agency-name')[0].innerText = data.val().agency;
       });
 
       userAmbulancesRef.on('child_removed', function(data) {
@@ -130,9 +164,12 @@ function startDatabaseQueries() {
       });
   };
 
+  fetchAmbulances(allAmbulancesRef, userAmbulancesSection);
   fetchAmbulances(userAmbulancesRef, userAmbulancesSection);
 
+  // Keep track of all Firebase reference on which we are listening.
   listeningFirebaseRefs.push(userAmbulancesRef);
+  listeningFirebaseRefs.push(allAmbulancesRef);
 }
 
 /**
@@ -188,20 +225,10 @@ function onAuthStateChanged(user) {
 }
 
 /**
- * Creates a new post for the current user.
+ * Creates a new ambulance for the current user.
  */
-function newPostForCurrentUser(title, text) {
-  var userId = firebase.auth().currentUser.uid;
-  return database.ref('/users/' + userId).once('value').then(function(snapshot) {
-    var username = (snapshot.val() && snapshot.val().username) || 'Anonymous';
-    return writeNewPost(firebase.auth().currentUser.uid, username,
-      firebase.auth().currentUser.photoURL,
-      title, text);
-  });
-}
-
-function newAmbulance(name, id, agency) {
-    return writeNewAmbulance(firebase.auth().currentUser.uid, name, id, agency, null);
+function newAmbulance(name, id, agency, status, location) {
+    return writeNewAmbulance(firebase.auth().currentUser.uid, name, id, agency, location, status);
 }
 
 /**
@@ -243,20 +270,97 @@ window.addEventListener('load', function() {
     var vehicle_id = idInput.value;
     var agency = agencyNameInput.value;
     var agency_password = agencyPassInput.value;
+    var checkedRadio = null;
+    var userPos = null;
 
     if (name && vehicle_id && agency && agency_password) {
-        // check agency password is correct
+        var agencyData = {
+            key: agency_password
+        };
 
-      newAmbulance(name, vehicle_id, agency).then(function() {
-          myAmbulancesButton.click();
-      })
+        // Adds this agency to the list of overall agencies
+        var updates = {};
+        updates['agencies/' + agency] = agencyData;
 
-      nameInput.value = '';
-      idInput.value = '';
-      agencyNameInput.value = '';
-      agencyPassInput.value = '';
+        database.ref().update(updates).then(function() {
+            // Check agency password is correct (will automatically be set to the user's input for dev purposes)
+            var agencyPassRef = database.ref('agencies/' + agency + '/key');
+            agencyPassRef.get().then((snapshot) => {
+                if (snapshot.val() == agency_password) {
+                    if (availableRadio.checked) {
+                        checkedRadio = availableRadio;
+                    } else if (inactiveRadio.checked) {
+                        checkedRadio = inactiveRadio;
+                    } else {
+                        checkedRadio = notAvailableRadio;
+                    }
+
+                    if (navigator.geolocation) {
+                      navigator.geolocation.getCurrentPosition(
+                        (position) => {
+                          const pos = {
+                            lat: position.coords.latitude,
+                            lng: position.coords.longitude,
+                          };
+
+                          userPos = pos;
+
+                          newAmbulance(name, vehicle_id, agency, checkedRadio.value, userPos).then(function() {
+                              myAmbulancesButton.click();
+                          });
+
+                          nameInput.value = '';
+                          idInput.value = '';
+                          agencyNameInput.value = '';
+                          agencyPassInput.value = '';
+
+                          availableRadio.checked = false;
+                          inactiveRadio.checked = false;
+                          notAvailableRadio.checked = true;
+
+                          console.log(userPos);
+                        },
+                        () => {
+                          console.log("Cannot track your location: Geolocation error");
+                        }
+                      );
+                    } else {
+                      // Browser doesn't support Geolocation
+                      console.log("Cannot track your location: browser does not support geolocation");
+                    }
+
+                    // https://www.googleapis.com/geolocation/v1/geolocate?key=AIzaSyBAS6kAkoJozCcihzNcxSQ0FeE0C7Xzsu4
+              } else {
+                  console.log(snapshot.val());
+                  console.log("Incorrect password");
+              }
+            });
+      });
     }
   };
+
+  function getCurrentLocation(ambulanceKey) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const pos = {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+          };
+
+          var locationData = {
+              key: pos
+          };
+
+          updates['/ambulances/' + ambulanceKey] = pos;
+          updates['/user-ambulances/' + uid + '/' + ambulanceKey] = pos;
+
+          database.ref().update(updates);
+          console.log(pos);
+        },
+        () => {
+          console.log("Cannot track your location: Geolocation error");
+        });
+  }
 
   myAmbulancesButton.onclick = function() {
       showSection(userAmbulancesSection);
@@ -268,5 +372,9 @@ window.addEventListener('load', function() {
     idInput.value = '';
     agencyNameInput.value = '';
     agencyPassInput.value = '';
+
+    availableRadio.checked = false;
+    inactiveRadio.checked = false;
+    notAvailableRadio.checked = true;
   };
 }, false);
