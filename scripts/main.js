@@ -12,7 +12,8 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase
-const app = !firebase.apps.length ? firebase.initializeApp(firebaseConfig) : firebase.app()
+const app = !firebase.apps.length ? firebase.initializeApp(firebaseConfig) : firebase.app();
+// Firebase will use the default realtime database without a name specified (this is okay)
 const database = firebase.database();
 
  'use strict';
@@ -44,8 +45,10 @@ function writeNewAmbulance(uid, name, vehicle_id, agency, location) {
         location: location
     };
 
+    // Creates a new key to identify this ambulance
     var newAmbulanceKey = database.ref().child('ambulances').push().key;
 
+    // Adds this ambulance into the list of all ambulances and the list of the logged in user's ambulances
     var updates = {};
     updates['/ambulances/' + newAmbulanceKey] = ambulanceData;
     updates['/user-ambulances/' + uid + '/' + newAmbulanceKey] = ambulanceData;
@@ -59,6 +62,7 @@ function writeNewAmbulance(uid, name, vehicle_id, agency, location) {
 function createAmbulanceElement(elementId, vehicle_id, name, agency, location, creatorid) {
     var uid = firebase.auth().currentUser.uid;
 
+    // Template html for the card element the ambulance will show up in
     var html =
         '<div class="post vehicle-' + elementId + ' mdl-cell mdl-cell--12-col ' +
                     'mdl-cell--6-col-tablet mdl-cell--4-col-desktop mdl-grid mdl-grid--no-spacing">' +
@@ -75,19 +79,23 @@ function createAmbulanceElement(elementId, vehicle_id, name, agency, location, c
           '</div>' +
         '</div>';
 
+        // Create the DOM element from the HTML.
         var div = document.createElement('div');
         div.innerHTML = html;
         var ambulanceElement = div.firstChild;
 
-        ambulanceElement.getElementsByClassName('text')[0].innerText = location | "N/A";
+        // Set the values of the new ambulance element
+        ambulanceElement.getElementsByClassName('text')[0].innerText = location || "N/A";
         ambulanceElement.getElementsByClassName('mdl-card__title-text')[0].innerText = "#" + vehicle_id + ": " + name;
         ambulanceElement.getElementsByClassName('username')[0].innerText = agency;
 
+        // Listen for updates to the ambulance's location
         var locationRef = database.ref('user-ambulances/' + elementId + '/location');
         locationRef.on('value', function(snapshot) {
           updateLocation(ambulanceElement, snapshot.val());
         });
 
+        // Keep track of all Firebase reference on which we are listening.
         listeningFirebaseRefs.push(locationRef);
 
         return ambulanceElement;
@@ -114,7 +122,7 @@ function startDatabaseQueries() {
           containerElement.insertBefore(
               createAmbulanceElement(data.key, data.val().vehicle_id, data.val().name, data.val().agency, data.val().location, data.val().uid),
               containerElement.firstChild);
-      });
+      }); // A new ambulance element will be added to the ambulance elements' container when a new ambulance is added to the user's list of ambulances
 
       userAmbulancesRef.on('child_changed', function(data) {
           var containerElement = ambulancesSection.getElementsByClassName('posts-container')[0];
@@ -132,6 +140,7 @@ function startDatabaseQueries() {
 
   fetchAmbulances(userAmbulancesRef, userAmbulancesSection);
 
+  // Keep track of all Firebase reference on which we are listening.
   listeningFirebaseRefs.push(userAmbulancesRef);
 }
 
@@ -188,18 +197,8 @@ function onAuthStateChanged(user) {
 }
 
 /**
- * Creates a new post for the current user.
+ * Creates a new ambulance for the current user.
  */
-function newPostForCurrentUser(title, text) {
-  var userId = firebase.auth().currentUser.uid;
-  return database.ref('/users/' + userId).once('value').then(function(snapshot) {
-    var username = (snapshot.val() && snapshot.val().username) || 'Anonymous';
-    return writeNewPost(firebase.auth().currentUser.uid, username,
-      firebase.auth().currentUser.photoURL,
-      title, text);
-  });
-}
-
 function newAmbulance(name, id, agency) {
     return writeNewAmbulance(firebase.auth().currentUser.uid, name, id, agency, null);
 }
